@@ -1,0 +1,23 @@
+FROM node:20-alpine AS base
+WORKDIR /app
+
+FROM base AS deps
+COPY package.json ./
+COPY shared/package.json ./shared/
+COPY parser/package.json ./parser/
+COPY backend/package.json ./backend/
+RUN npm install --workspace=shared --workspace=parser --workspace=backend
+
+FROM base AS build
+COPY --from=deps /app/node_modules ./node_modules
+COPY tsconfig.base.json ./
+COPY shared ./shared
+COPY parser ./parser
+COPY backend ./backend
+RUN npm run build --workspace=shared --workspace=parser --workspace=backend
+
+FROM base AS runner
+COPY --from=build /app/backend/dist ./dist
+COPY --from=build /app/node_modules ./node_modules
+EXPOSE 3001
+CMD ["node", "dist/main"]
