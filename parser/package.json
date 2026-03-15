@@ -15,7 +15,7 @@
     "build": "tsc -p tsconfig.json",
     "build:watch": "tsc -p tsconfig.json --watch",
     "lint": "eslint src --ext .ts",
-    "test": "ts-node --project tsconfig.test.json test/parser.test.ts",
+    "test": "ts-node --project tsconfig.test.json test/parser.test.ts && ts-node --project tsconfig.test.json test/graph-builder.test.ts",
     "test:unit": "jest"
   },
   "dependencies": {
