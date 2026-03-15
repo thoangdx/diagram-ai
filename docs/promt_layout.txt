@@ -1,0 +1,2 @@
+Read docs/layout-engine.md and implement the layout engine module.
+Use Dagre for MVP.
