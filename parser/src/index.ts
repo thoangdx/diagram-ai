@@ -6,6 +6,7 @@ import type { DatabaseSchema } from './ast'
 export { tokenize, parse, validate }
 export { TokenizeError, ParseError }
 export type { DatabaseSchema }
+export type { ColumnNode, TableNode as TableASTNode, RelationNode, RelationDirection } from './ast'
 export type { ValidationError } from './validator'
 export type { Token, TokenType } from './tokenizer'
 
