@@ -1,1 +1,2 @@
-// Monaco Editor integration — implementation pending
+export { DBMLEditor } from './DBMLEditor'
+export { useDBMLDiagram } from './useDBMLDiagram'

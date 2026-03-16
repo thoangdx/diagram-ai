@@ -9,30 +9,23 @@ import ReactFlow, {
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 
-import type { LayoutResult } from '@dbdiagram/parser'
+import type { Node, Edge } from 'reactflow'
 import { TableNode } from './TableNode'
-import { useDiagramData } from './hooks/useDiagramData'
+import type { TableNodeData } from './types'
 
 /**
- * Node type registry for React Flow.
- *
- * Defined outside the component so the object reference is stable across
- * renders. Defining it inside the component would cause React Flow to
- * unmount and remount all nodes on every render.
+ * Node type registry — defined at module level so the reference is stable
+ * across renders. A new object on every render would cause React Flow to
+ * unmount and remount all nodes.
  */
 const nodeTypes = { tableNode: TableNode }
 
 interface DiagramCanvasProps {
-  layout: LayoutResult
+  nodes: Node<TableNodeData>[]
+  edges: Edge[]
 }
 
-/**
- * Inner component that uses React Flow hooks.
- * Must be a child of ReactFlowProvider.
- */
-function DiagramCanvasInner({ layout }: DiagramCanvasProps) {
-  const { nodes, edges } = useDiagramData(layout)
-
+function DiagramCanvasInner({ nodes, edges }: DiagramCanvasProps) {
   return (
     <ReactFlow
       nodes={nodes}
@@ -72,32 +65,11 @@ function DiagramCanvasInner({ layout }: DiagramCanvasProps) {
   )
 }
 
-/**
- * React Flow diagram canvas that renders a LayoutResult as an ER diagram.
- *
- * Accepts a LayoutResult (produced by layoutGraph) and transforms it into
- * React Flow nodes and edges via the useDiagramData hook.
- *
- * Each table node is rendered by TableNode, which shows:
- *   - Table name header
- *   - Column rows with type annotations and PK/Unique/NotNull badges
- *   - Per-column handles for precise edge connections
- *
- * The canvas supports:
- *   - fitView: diagram is auto-zoomed to fit on mount
- *   - zoom: scroll wheel or pinch to zoom
- *   - pan: click-drag to pan the canvas
- *   - minimap: overview panel (bottom-right)
- *   - controls: zoom in/out/fit buttons (bottom-left)
- *
- * Wrapped in ReactFlowProvider so internal React Flow hooks work correctly
- * even when the parent tree has no existing provider.
- */
-export function DiagramCanvas({ layout }: DiagramCanvasProps) {
+export function DiagramCanvas({ nodes, edges }: DiagramCanvasProps) {
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <ReactFlowProvider>
-        <DiagramCanvasInner layout={layout} />
+        <DiagramCanvasInner nodes={nodes} edges={edges} />
       </ReactFlowProvider>
     </div>
   )

@@ -1,50 +1,23 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useMemo } from 'react'
-import { parseDBML, buildDiagramGraph, layoutGraph } from '@dbdiagram/parser'
-import type { LayoutResult } from '@dbdiagram/parser'
+import { useState } from 'react'
+import { useDBMLDiagram } from '../editor/useDBMLDiagram'
 
-/**
- * DiagramCanvas is loaded with ssr: false because React Flow uses browser-only
- * APIs (window, ResizeObserver, requestAnimationFrame) that are not available
- * in Node.js. Without this, Next.js prerendering throws on the server.
- */
-const DiagramCanvas = dynamic(
-  () => import('../diagram/DiagramCanvas').then((mod) => ({ default: mod.DiagramCanvas })),
-  {
-    ssr: false,
-    loading: () => (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          color: '#94a3b8',
-          fontSize: 14,
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-        }}
-      >
-        Loading diagram…
-      </div>
-    ),
-  },
+const DBMLEditor = dynamic(
+  () => import('../editor/DBMLEditor').then((mod) => ({ default: mod.DBMLEditor })),
+  { ssr: false, loading: () => <div style={loadingStyle}>Loading editor…</div> },
 )
 
-/**
- * Demo schema: users, products, orders, order_items.
- *
- * Covers all relation directions:
- *   >  (many-to-one)  orders.user_id         > users.id
- *   >  (many-to-one)  order_items.order_id   > orders.id
- *   >  (many-to-one)  order_items.product_id > products.id
- */
-const DEMO_DBML = `
-Table users {
-  id         int      [pk]
-  name       varchar  [not null]
-  email      varchar  [not null, unique]
+const DiagramCanvas = dynamic(
+  () => import('../diagram/DiagramCanvas').then((mod) => ({ default: mod.DiagramCanvas })),
+  { ssr: false, loading: () => <div style={loadingStyle}>Loading diagram…</div> },
+)
+
+const DEFAULT_DBML = `Table users {
+  id         int       [pk]
+  name       varchar   [not null]
+  email      varchar   [not null, unique]
   created_at timestamp
 }
 
@@ -67,27 +40,113 @@ Table order_items {
   order_id   int [ref: > orders.id]
   product_id int [ref: > products.id]
   quantity   int [not null]
-}
-`
+}`
 
-/**
- * Home page — renders the demo ER diagram.
- *
- * The full pipeline (parseDBML → buildDiagramGraph → layoutGraph) runs
- * in the browser via useMemo. The LayoutResult is passed as a prop to
- * DiagramCanvas, which is loaded client-side only (ssr: false) to avoid
- * React Flow's dependency on browser globals during prerendering.
- */
 export default function Home() {
-  const layout: LayoutResult = useMemo(() => {
-    const schema = parseDBML(DEMO_DBML)
-    const graph = buildDiagramGraph(schema)
-    return layoutGraph(graph)
-  }, [])
+  const [dbml, setDbml] = useState(DEFAULT_DBML)
+  const { nodes, edges, error } = useDBMLDiagram(dbml)
 
   return (
-    <main style={{ width: '100vw', height: '100vh' }}>
-      <DiagramCanvas layout={layout} />
-    </main>
+    <div style={rootStyle}>
+      {/* Left panel — editor */}
+      <div style={editorPanelStyle}>
+        <div style={panelHeaderStyle}>DBML Editor</div>
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <DBMLEditor value={dbml} onChange={setDbml} />
+        </div>
+        {error && (
+          <div style={errorBannerStyle}>
+            <span style={errorIconStyle}>⚠</span>
+            {error}
+          </div>
+        )}
+      </div>
+
+      <div style={dividerStyle} />
+
+      {/* Right panel — diagram */}
+      <div style={diagramPanelStyle}>
+        <div style={panelHeaderStyle}>ER Diagram</div>
+        <div style={{ flex: 1, position: 'relative' }}>
+          <DiagramCanvas nodes={nodes} edges={edges} />
+        </div>
+      </div>
+    </div>
   )
+}
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+
+const rootStyle: React.CSSProperties = {
+  display: 'flex',
+  width: '100vw',
+  height: '100vh',
+  overflow: 'hidden',
+  background: '#0f172a',
+}
+
+const editorPanelStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  width: '40%',
+  minWidth: 320,
+  flexShrink: 0,
+}
+
+const diagramPanelStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  flex: 1,
+  minWidth: 0,
+  background: '#f8fafc',
+}
+
+const panelHeaderStyle: React.CSSProperties = {
+  padding: '8px 16px',
+  background: '#1e293b',
+  color: '#94a3b8',
+  fontSize: 11,
+  fontWeight: 600,
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  flexShrink: 0,
+  userSelect: 'none',
+}
+
+const dividerStyle: React.CSSProperties = {
+  width: 1,
+  background: '#334155',
+  flexShrink: 0,
+}
+
+const errorBannerStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: 8,
+  padding: '8px 14px',
+  background: '#1c0a0a',
+  borderTop: '1px solid #7f1d1d',
+  color: '#fca5a5',
+  fontSize: 12,
+  fontFamily: '"Fira Code", "Cascadia Code", Menlo, Monaco, monospace',
+  lineHeight: 1.5,
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+  flexShrink: 0,
+  maxHeight: 120,
+  overflowY: 'auto',
+}
+
+const errorIconStyle: React.CSSProperties = {
+  flexShrink: 0,
+  marginTop: 1,
+}
+
+const loadingStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  height: '100%',
+  color: '#94a3b8',
+  fontSize: 13,
 }
