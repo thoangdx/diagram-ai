@@ -12,6 +12,9 @@ export type { Token, TokenType } from './tokenizer'
 export { buildDiagramGraph } from './graph'
 export type { DiagramGraph, DiagramNode, DiagramEdge } from './graph'
 
+export { layoutGraph, computeNodeSize, HEADER_HEIGHT, ROW_HEIGHT, PADDING, NODE_WIDTH } from './layout'
+export type { LayoutResult, PositionedNode, PositionedEdge, NodeSize } from './layout'
+
 export class DBMLError extends Error {
   constructor(message: string) {
     super(message)
