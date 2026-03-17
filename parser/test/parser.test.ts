@@ -437,6 +437,106 @@ test('full e-commerce schema', () => {
   assert(rels.some((r) => r.fromTable === 'order_items' && r.toTable === 'products'), 'items→products rel')
 })
 
+// ── 11. Column note option ───────────────────────────────────────────────────
+
+console.log('\n11. Column note option')
+
+test('parses note with single quotes', () => {
+  const schema = parseDBML(`Table t { email varchar [note: 'User email address'] }`)
+  assertEqual(schema.tables[0].columns[0].note, 'User email address', 'note value')
+})
+
+test('parses note with double quotes', () => {
+  const schema = parseDBML(`Table t { email varchar [note: "User email address"] }`)
+  assertEqual(schema.tables[0].columns[0].note, 'User email address', 'note value')
+})
+
+test('note combined with other options', () => {
+  const schema = parseDBML(`Table t { email varchar [not null, unique, note: 'Primary contact'] }`)
+  const col = schema.tables[0].columns[0]
+  assertEqual(col.notNull, true, 'notNull preserved')
+  assertEqual(col.unique, true, 'unique preserved')
+  assertEqual(col.note, 'Primary contact', 'note value')
+})
+
+test('note combined with pk', () => {
+  const schema = parseDBML(`Table t { id int [pk, note: 'Auto increment PK'] }`)
+  const col = schema.tables[0].columns[0]
+  assertEqual(col.primaryKey, true, 'primaryKey preserved')
+  assertEqual(col.note, 'Auto increment PK', 'note value')
+})
+
+test('note combined with ref', () => {
+  const schema = parseDBML(`
+    Table users { id int [pk] }
+    Table orders { user_id int [ref: > users.id, note: 'Owner of the order'] }
+  `)
+  const col = schema.tables[1].columns[0]
+  assertEqual(col.note, 'Owner of the order', 'note value')
+  // relation still produced at schema level
+  assertEqual(schema.relations.length, 1, 'relation count')
+  assertEqual(schema.relations[0].fromColumn, 'user_id', 'relation fromColumn')
+})
+
+test('column without note has no note field', () => {
+  const schema = parseDBML(`Table t { id int [pk] }`)
+  assert(schema.tables[0].columns[0].note === undefined, 'note is absent')
+})
+
+test('note with empty string', () => {
+  const schema = parseDBML(`Table t { id int [note: ''] }`)
+  assertEqual(schema.tables[0].columns[0].note, '', 'empty note')
+})
+
+// ── 12. Column references field ───────────────────────────────────────────────
+
+console.log('\n12. Column references field')
+
+test('ref option populates column.references', () => {
+  const schema = parseDBML(`
+    Table users  { id int [pk] }
+    Table orders { user_id int [ref: > users.id] }
+  `)
+  const col = schema.tables[1].columns[0]
+  assert(col.references !== undefined, 'references is set')
+  assertEqual(col.references!.table,     'users', 'references.table')
+  assertEqual(col.references!.column,    'id',    'references.column')
+  assertEqual(col.references!.direction, '>',     'references.direction')
+})
+
+test('references direction < is preserved', () => {
+  const schema = parseDBML(`
+    Table users  { id int [pk] }
+    Table orders { id  int [ref: < users.id] }
+  `)
+  assertEqual(schema.tables[1].columns[0].references!.direction, '<', 'direction')
+})
+
+test('references direction - is preserved', () => {
+  const schema = parseDBML(`
+    Table users    { id int [pk] }
+    Table profiles { id int [ref: - users.id] }
+  `)
+  assertEqual(schema.tables[1].columns[0].references!.direction, '-', 'direction')
+})
+
+test('column without ref has no references field', () => {
+  const schema = parseDBML(`Table t { id int [pk] }`)
+  assert(schema.tables[0].columns[0].references === undefined, 'references is absent')
+})
+
+test('schema.relations still produced alongside column.references', () => {
+  const schema = parseDBML(`
+    Table users  { id int [pk] }
+    Table orders { user_id int [ref: > users.id] }
+  `)
+  // Both the column-level and schema-level representations exist
+  assertEqual(schema.relations.length, 1, 'relation count')
+  assertEqual(schema.relations[0].fromTable,  'orders',  'relation fromTable')
+  assertEqual(schema.relations[0].fromColumn, 'user_id', 'relation fromColumn')
+  assert(schema.tables[1].columns[0].references !== undefined, 'column.references set')
+})
+
 // ── Results ───────────────────────────────────────────────────────────────────
 
 console.log(`\n${'─'.repeat(50)}`)

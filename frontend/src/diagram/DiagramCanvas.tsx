@@ -1,17 +1,20 @@
 'use client'
 
+import { useState, useMemo } from 'react'
 import ReactFlow, {
   Background,
   BackgroundVariant,
   Controls,
   MiniMap,
   ReactFlowProvider,
+  MarkerType,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 
 import type { Node, Edge } from 'reactflow'
 import { TableNode } from './TableNode'
 import type { TableNodeData } from './types'
+import { HoverContext, type HoveredRelation } from './HoverContext'
 
 /**
  * Node type registry — defined at module level so the reference is stable
@@ -26,42 +29,60 @@ interface DiagramCanvasProps {
 }
 
 function DiagramCanvasInner({ nodes, edges }: DiagramCanvasProps) {
+  const [hoveredRelation, setHoveredRelation] = useState<HoveredRelation | null>(null)
+
+  const styledEdges = useMemo(
+    () =>
+      edges.map((e) => {
+        if (e.id !== hoveredRelation?.edgeId) return e
+        return {
+          ...e,
+          style: { stroke: '#2563eb', strokeWidth: 3 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#2563eb' },
+          zIndex: 10,
+        }
+      }),
+    [edges, hoveredRelation]
+  )
+
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      nodeTypes={nodeTypes}
-      fitView
-      fitViewOptions={{ padding: 0.15, maxZoom: 1.2 }}
-      minZoom={0.1}
-      maxZoom={2}
-      defaultEdgeOptions={{ type: 'smoothstep' }}
-      proOptions={{ hideAttribution: true }}
-    >
-      <Background
-        variant={BackgroundVariant.Dots}
-        gap={20}
-        size={1}
-        color="#e2e8f0"
-      />
-      <Controls
-        showInteractive={false}
-        style={{
-          background: '#ffffff',
-          border: '1px solid #e2e8f0',
-          borderRadius: 8,
-          boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-        }}
-      />
-      <MiniMap
-        nodeColor="#1e293b"
-        maskColor="rgba(248,250,252,0.85)"
-        style={{
-          border: '1px solid #e2e8f0',
-          borderRadius: 8,
-        }}
-      />
-    </ReactFlow>
+    <HoverContext.Provider value={{ hoveredRelation, setHoveredRelation }}>
+      <ReactFlow
+        nodes={nodes}
+        edges={styledEdges}
+        nodeTypes={nodeTypes}
+        fitView
+        fitViewOptions={{ padding: 0.15, maxZoom: 1.2 }}
+        minZoom={0.1}
+        maxZoom={2}
+        defaultEdgeOptions={{ type: 'smoothstep' }}
+        proOptions={{ hideAttribution: true }}
+      >
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={20}
+          size={1}
+          color="#e2e8f0"
+        />
+        <Controls
+          showInteractive={false}
+          style={{
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: 8,
+            boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+          }}
+        />
+        <MiniMap
+          nodeColor="#1e293b"
+          maskColor="rgba(248,250,252,0.85)"
+          style={{
+            border: '1px solid #e2e8f0',
+            borderRadius: 8,
+          }}
+        />
+      </ReactFlow>
+    </HoverContext.Provider>
   )
 }
 

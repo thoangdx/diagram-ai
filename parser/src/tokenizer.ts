@@ -5,7 +5,9 @@ export type TokenType =
   | 'KEYWORD_UNIQUE'  // unique
   | 'KEYWORD_NOT'     // not
   | 'KEYWORD_NULL'    // null
+  | 'KEYWORD_NOTE'    // note
   | 'IDENTIFIER'      // table/column names, types
+  | 'STRING'          // 'quoted' or "quoted" string literal
   | 'LBRACE'          // {
   | 'RBRACE'          // }
   | 'LBRACKET'        // [
@@ -35,6 +37,7 @@ const KEYWORDS: Record<string, TokenType> = {
   unique: 'KEYWORD_UNIQUE',
   not:    'KEYWORD_NOT',
   null:   'KEYWORD_NULL',
+  note:   'KEYWORD_NOTE',
 }
 
 export class TokenizeError extends Error {
@@ -105,6 +108,22 @@ export function tokenize(input: string): Token[] {
       case '>': tokens.push(makeToken('REL_GT',    ch, tokenLine, tokenCol)); break
       case '<': tokens.push(makeToken('REL_LT',    ch, tokenLine, tokenCol)); break
       case '-': tokens.push(makeToken('REL_DASH',  ch, tokenLine, tokenCol)); break
+
+      case "'":
+      case '"': {
+        // Quoted string literal — consume until matching closing quote.
+        const quote = ch
+        let str = ''
+        while (pos < input.length && peek() !== quote) {
+          str += advance()
+        }
+        if (pos >= input.length) {
+          throw new TokenizeError(`Unterminated string literal`, tokenLine, tokenCol)
+        }
+        advance() // consume closing quote
+        tokens.push(makeToken('STRING', str, tokenLine, tokenCol))
+        break
+      }
 
       default: {
         if (/[a-zA-Z_]/.test(ch)) {

@@ -58,7 +58,8 @@ class Parser {
       tok.type === 'KEYWORD_PK'    ||
       tok.type === 'KEYWORD_UNIQUE'||
       tok.type === 'KEYWORD_NOT'   ||
-      tok.type === 'KEYWORD_NULL'
+      tok.type === 'KEYWORD_NULL'  ||
+      tok.type === 'KEYWORD_NOTE'
     ) {
       return this.advance()
     }
@@ -127,6 +128,7 @@ class Parser {
     let unique = false
     let notNull = false
     let relation: RelationNode | null = null
+    let note: string | null = null
 
     if (this.check('LBRACKET')) {
       this.advance() // consume [
@@ -137,6 +139,7 @@ class Parser {
       if (first.unique) unique = true
       if (first.notNull) notNull = true
       if (first.relation) relation = first.relation
+      if (first.note !== null) note = first.note
 
       while (this.check('COMMA')) {
         this.advance() // consume ,
@@ -145,31 +148,40 @@ class Parser {
         if (next.unique) unique = true
         if (next.notNull) notNull = true
         if (next.relation) relation = next.relation
+        if (next.note !== null) note = next.note
       }
 
       this.expect('RBRACKET')
     }
 
+    // Build references from the relation if present (renderer semantics only).
+    const references = relation
+      ? { table: relation.toTable, column: relation.toColumn, direction: relation.direction }
+      : null
+
     const column: ColumnNode = {
       name: nameTok.value,
       type: typeTok.value,
-      ...(primaryKey ? { primaryKey } : {}),
-      ...(unique     ? { unique }     : {}),
-      ...(notNull    ? { notNull }    : {}),
+      ...(primaryKey  ? { primaryKey }  : {}),
+      ...(unique      ? { unique }      : {}),
+      ...(notNull     ? { notNull }     : {}),
+      ...(references  ? { references }  : {}),
+      ...(note !== null ? { note }      : {}),
     }
 
     return { column, relation }
   }
 
-  // option ::= "pk" | "not null" | "unique" | reference_option
+  // option ::= "pk" | "not null" | "unique" | reference_option | note_option
   private parseOption(
     tableName: string,
     columnName: string
-  ): { primaryKey: boolean; unique: boolean; notNull: boolean; relation: RelationNode | null } {
+  ): { primaryKey: boolean; unique: boolean; notNull: boolean; relation: RelationNode | null; note: string | null } {
     let primaryKey = false
     let unique = false
     let notNull = false
     let relation: RelationNode | null = null
+    let note: string | null = null
 
     if (this.check('KEYWORD_PK')) {
       this.advance()
@@ -183,16 +195,26 @@ class Parser {
       notNull = true
     } else if (this.check('KEYWORD_REF')) {
       relation = this.parseReferenceOption(tableName, columnName)
+    } else if (this.check('KEYWORD_NOTE')) {
+      note = this.parseNoteOption()
     } else {
       const tok = this.peek()
       throw new ParseError(
-        `Unknown column option: got ${tok.type}${tok.value ? ` ('${tok.value}')` : ''}. Expected pk, unique, not null, or ref`,
+        `Unknown column option: got ${tok.type}${tok.value ? ` ('${tok.value}')` : ''}. Expected pk, unique, not null, ref, or note`,
         tok.line,
         tok.col
       )
     }
 
-    return { primaryKey, unique, notNull, relation }
+    return { primaryKey, unique, notNull, relation, note }
+  }
+
+  // note_option ::= "note" ":" STRING
+  private parseNoteOption(): string {
+    this.expect('KEYWORD_NOTE')
+    this.expect('COLON')
+    const strTok = this.expect('STRING')
+    return strTok.value
   }
 
   // reference_option ::= "ref:" relation_direction identifier "." identifier

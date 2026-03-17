@@ -4,6 +4,7 @@ import { memo } from 'react'
 import { Handle, Position } from 'reactflow'
 import type { NodeProps } from 'reactflow'
 import type { TableNodeData } from './types'
+import { useHoverContext } from './HoverContext'
 
 /**
  * Pixel constants — must match parser/src/layout/node-size.ts so that
@@ -53,15 +54,24 @@ const handleStyle: React.CSSProperties = {
 // ── Column row ────────────────────────────────────────────────────────────────
 
 interface ColumnRowProps {
+  tableName: string
   name: string
   type: string
   primaryKey?: boolean
   unique?: boolean
   notNull?: boolean
+  references?: { table: string; column: string; direction: string }
+  note?: string
   index: number
 }
 
-function ColumnRow({ name, type, primaryKey, unique, notNull, index }: ColumnRowProps) {
+function ColumnRow({ tableName, name, type, primaryKey, unique, notNull, references, note, index }: ColumnRowProps) {
+  const { hoveredRelation, setHoveredRelation } = useHoverContext()
+
+  // This column is highlighted when it is the target of the hovered relation.
+  const isTarget =
+    hoveredRelation?.toTable === tableName && hoveredRelation?.toColumn === name
+
   const rowStyle: React.CSSProperties = {
     position: 'relative',
     display: 'flex',
@@ -69,14 +79,33 @@ function ColumnRow({ name, type, primaryKey, unique, notNull, index }: ColumnRow
     justifyContent: 'space-between',
     padding: '0 12px',
     height: ROW_HEIGHT,
-    background: index % 2 === 0 ? '#f8fafc' : '#ffffff',
-    borderTop: '1px solid #f1f5f9',
+    background: isTarget
+      ? '#eff6ff'
+      : index % 2 === 0
+      ? '#f8fafc'
+      : '#ffffff',
+    borderTop: isTarget ? '1px solid #bfdbfe' : '1px solid #f1f5f9',
+    transition: 'background 0.15s',
   }
 
   const top = rowCenter(index)
 
+  function handleMouseEnter() {
+    if (!references) return
+    setHoveredRelation({
+      edgeId: `${tableName}_${name}_${references.table}_${references.column}`,
+      toTable: references.table,
+      toColumn: references.column,
+    })
+  }
+
+  function handleMouseLeave() {
+    if (!references) return
+    setHoveredRelation(null)
+  }
+
   return (
-    <div style={rowStyle}>
+    <div style={rowStyle} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       {/* Target handle — incoming foreign key arrow lands here */}
       <Handle
         type="target"
@@ -104,7 +133,29 @@ function ColumnRow({ name, type, primaryKey, unique, notNull, index }: ColumnRow
             PK
           </span>
         )}
+        {references && (
+          <span
+            title={`Foreign key → ${references.table}.${references.column}`}
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              color: '#0e7490',
+              background: '#cffafe',
+              border: '1px solid #67e8f9',
+              borderRadius: 3,
+              padding: '0 4px',
+              lineHeight: '16px',
+            }}
+          >
+            FK
+          </span>
+        )}
         {name}
+        {note && (
+          <span title={note} style={{ fontSize: 12, cursor: 'default', lineHeight: 1 }}>
+            📝
+          </span>
+        )}
       </span>
 
       {/* Column type + constraints */}
@@ -113,9 +164,18 @@ function ColumnRow({ name, type, primaryKey, unique, notNull, index }: ColumnRow
         {notNull && (
           <span
             title="Not null"
-            style={{ color: '#dc2626', fontSize: 11, fontWeight: 700 }}
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              color: '#dc2626',
+              background: '#fee2e2',
+              border: '1px solid #fca5a5',
+              borderRadius: 3,
+              padding: '0 3px',
+              lineHeight: '16px',
+            }}
           >
-            *
+            NN
           </span>
         )}
         {unique && !primaryKey && (
@@ -174,11 +234,14 @@ function TableNodeComponent({ data }: NodeProps<TableNodeData>) {
       {columns.map((col, index) => (
         <ColumnRow
           key={col.name}
+          tableName={tableName}
           name={col.name}
           type={col.type}
           primaryKey={col.primaryKey}
           unique={col.unique}
           notNull={col.notNull}
+          references={col.references}
+          note={col.note}
           index={index}
         />
       ))}

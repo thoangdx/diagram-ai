@@ -16,6 +16,23 @@ export interface ColumnNode {
   primaryKey?: boolean
   unique?: boolean
   notNull?: boolean
+  /**
+   * Populated when the column carries a `ref:` option.
+   * Used by the renderer to display FK badges without querying the
+   * schema-level relations array.
+   * The graph builder continues to use schema.relations for edges —
+   * this field is purely for renderer semantics.
+   */
+  references?: {
+    table: string
+    column: string
+    direction: RelationDirection
+  }
+  /**
+   * Populated when the column carries a `note: '…'` option.
+   * Used by the renderer to display tooltips.
+   */
+  note?: string
 }
 
 export type RelationDirection = '>' | '<' | '-'
